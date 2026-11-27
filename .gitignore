@@ -1,16 +1,15 @@
-# Скомпилированные бинарные файлы
+# Compiled binary files
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
 
-# Файлы тестов и кэш
+# Test files and cache
 *.test
 *.out
 /vendor/
 
-# Папки IDE (если используете VS Code или GoLand)
+# IDE folders (if you use VS Code or GoLand)
 .vscode/
 .idea/
-
