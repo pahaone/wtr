@@ -3,6 +3,7 @@ package cli
 import (
 	"flag"
 	"net/netip"
+	"strings"
 	"testing"
 	"time"
 
@@ -36,6 +37,29 @@ func TestNormalizeDNSServer(t *testing.T) {
 		if err == nil && got != c.want {
 			t.Errorf("normalizeDNSServer(%q) = %q, want %q", c.in, got, c.want)
 		}
+	}
+}
+
+// paint must wipe the rows left over from the previous frame: the table shrinks as soon as
+// the target is reached (hops beyond it are dropped), and without "erase down" the old rows
+// would keep hanging below the hint line.
+func TestPaintErasesStaleRows(t *testing.T) {
+	var b strings.Builder
+	paint(&b, "row 1\nrow 2\n")
+	got := b.String()
+	if !strings.HasPrefix(got, "\x1b[H") {
+		t.Errorf("the frame must start by homing the cursor, got %q", got)
+	}
+	if !strings.HasSuffix(got, "\x1b[J") {
+		t.Errorf("the frame must end with erase-down, got %q", got)
+	}
+	head := strings.Index(got, "row 2")
+	tail := strings.Index(got, "\x1b[J")
+	if head < 0 || tail < head {
+		t.Errorf("erase-down must come after the last row of the frame: %q", got)
+	}
+	if strings.Count(got, "\x1b[H") != 1 || strings.Count(got, "\x1b[J") != 1 {
+		t.Errorf("exactly one home and one erase per frame: %q", got)
 	}
 }
 

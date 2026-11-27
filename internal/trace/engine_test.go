@@ -166,6 +166,91 @@ func (b countingBackend) Probe(_ context.Context, ttl int, _ []byte, _ time.Dura
 
 func (countingBackend) Close() error { return nil }
 
+// blockingBackend never answers on its own: every Probe hangs until the context is
+// cancelled. It models a real network where probes are in flight at the moment the user
+// presses "q" — the engine must react to ctx cancellation, not wait for the replies.
+type blockingBackend struct {
+	calls *atomic.Int32
+}
+
+func (b blockingBackend) Probe(ctx context.Context, _ int, _ []byte, _ time.Duration) (probe.Reply, error) {
+	b.calls.Add(1)
+	<-ctx.Done()
+	return probe.Reply{}, ctx.Err()
+}
+
+func (blockingBackend) Close() error { return nil }
+
+// TestRunStopsOnContextCancel is the engine-side half of the "q key does not quit" fix:
+// an endless run (Cycles == 0, as in the interactive mode) must finish promptly and with a
+// nil error once its context is cancelled — that is what lets cli.Run wait for the Run
+// goroutine and exit cleanly instead of being killed by os.Exit.
+func TestRunStopsOnContextCancel(t *testing.T) {
+	oldNew, oldRoute := newBackend, routeTo
+	t.Cleanup(func() { newBackend, routeTo = oldNew, oldRoute })
+
+	var calls atomic.Int32
+	newBackend = func(probe.Config) (probe.Backend, error) { return blockingBackend{&calls}, nil }
+	routeTo = func(netip.Addr) (probe.RouteInfo, error) { return probe.RouteInfo{IfIndex: 17}, nil }
+
+	e, err := New(context.Background(), Options{
+		Target: "192.0.2.1", MaxHops: 4, Cycles: 0, QueriesPerHop: 1,
+		Interval: time.Second, Timeout: 5 * time.Second, PayloadSize: 56, Workers: 4,
+	}, nil)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	runDone := make(chan error, 1)
+	go func() { runDone <- e.Run(ctx) }()
+
+	// Wait until the probes are actually in flight, then press the equivalent of "q".
+	deadline := time.After(5 * time.Second)
+	for calls.Load() == 0 {
+		select {
+		case <-deadline:
+			t.Fatal("no probes were sent")
+		case <-time.After(time.Millisecond):
+		}
+	}
+	cancel()
+
+	select {
+	case err := <-runDone:
+		if err != nil {
+			t.Errorf("Run after cancel returned %v, want nil (normal interruption)", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Run did not finish after the context was cancelled")
+	}
+}
+
+// TestSnapshotDropsNeverProbedTrailingHops — hops are allocated for the whole --max-hops up
+// front, so the rows the engine has not reached yet (the first cycle is still in flight, or
+// every probe at that TTL failed at the API level) must not be rendered as empty "???" rows.
+func TestSnapshotDropsNeverProbedTrailingHops(t *testing.T) {
+	e := &Engine{
+		opt: Options{Target: "192.0.2.1", Family: probe.Family4, MaxHops: 5},
+		dst: netip.MustParseAddr("192.0.2.1"),
+	}
+	e.ensureHopsLocked(5)
+	e.hops[0].st.Add(time.Millisecond, true)
+	e.hops[0].observe(netip.MustParseAddr("10.0.0.1"))
+	e.hops[1].st.Add(0, false) // probed but silent: such a hop must stay visible
+
+	v := e.Snapshot()
+	if len(v.Hops) != 2 {
+		t.Fatalf("%d hops, want 2 (hops 3..5 were never probed): %+v", len(v.Hops), v.Hops)
+	}
+	if v.Hops[1].TTL != 2 {
+		t.Errorf("last hop TTL=%d, want 2", v.Hops[1].TTL)
+	}
+	if v.Reached {
+		t.Error("the target has not answered — Reached must be false")
+	}
+}
+
 // eagerBackend imitates a target that answers at every TTL starting from its distance
 // (this is how, for example, the local gateway behaves: it also answers at TTL=1).
 type eagerBackend struct{ c *atomic.Int32 }

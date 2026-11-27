@@ -64,6 +64,12 @@ func Run(args []string) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// The engine runs on its own child context so that the interactive mode can stop it
+	// deterministically (key "q"): cancelling only runCtx ends the probing loop without
+	// tearing down the process. Ctrl+C cancels ctx, which propagates here as well.
+	runCtx, cancelRun := context.WithCancel(ctx)
+	defer cancelRun()
+
 	// The resolver lives on its own context: cancelling ctx (Ctrl+C or the end of the
 	// cycles) must not abort DNS queries that are already running, otherwise the final
 	// report would come out without names and ASNs.
@@ -93,14 +99,14 @@ func Run(args []string) int {
 	runDone := make(chan struct{})
 	go func() {
 		defer close(runDone)
-		if err := eng.Run(ctx); err != nil {
+		if err := eng.Run(runCtx); err != nil {
 			fmt.Fprintf(os.Stderr, "wtr: %v\n", err)
 		}
 	}()
 
 	switch m {
 	case modeInteractive:
-		return interactive(ctx, eng, con, ropts, runDone)
+		return interactive(runCtx, cancelRun, eng, con, ropts, runDone)
 	case modeJSON:
 		<-runDone
 		flushDNS(dns)
@@ -166,7 +172,16 @@ func flushDNS(r *dnsx.Resolver) {
 	}
 }
 
-func interactive(ctx context.Context, eng *trace.Engine, con *console.Console, o render.Options, done <-chan struct{}) int {
+// paint redraws a frame from the top-left corner and erases everything below it.
+// render.Frame does not pad the output up to the window height, so without "erase down"
+// (\x1b[J) the rows of the previous, taller frame stay on the screen: that is exactly what
+// happens as soon as the target is reached and the hops beyond it (which the engine hides)
+// leave the table — the stale "???" rows keep hanging under the hint line.
+func paint(w io.Writer, frame string) {
+	fmt.Fprintf(w, "\x1b[H%s\x1b[J", frame)
+}
+
+func interactive(ctx context.Context, stopRun context.CancelFunc, eng *trace.Engine, con *console.Console, o render.Options, done <-chan struct{}) int {
 	con.RawInput()
 	keys := con.Keys(ctx)
 	out := os.Stdout
@@ -176,7 +191,7 @@ func interactive(ctx context.Context, eng *trace.Engine, con *console.Console, o
 
 	draw := func() {
 		cols, rows := con.Size()
-		fmt.Fprintf(out, "\x1b[H%s", render.Frame(eng.Snapshot(), cols, rows, o))
+		paint(out, render.Frame(eng.Snapshot(), cols, rows, o))
 	}
 	draw()
 
@@ -194,6 +209,14 @@ func interactive(ctx context.Context, eng *trace.Engine, con *console.Console, o
 		case k := <-keys:
 			switch k {
 			case 'q', 'Q':
+				// "q" must shut the engine down the same way Ctrl+C does: cancel the run
+				// context, then wait for the Run goroutine to finish (it drains and closes
+				// the ICMP handles on its way out). Returning straight away would let
+				// os.Exit kill that goroutine mid-flight — the probes just stop without the
+				// process ever completing its shutdown.
+				stopRun()
+				<-done
+				draw()
 				return 0
 			case 'n', 'N':
 				o.ShowNames = !o.ShowNames

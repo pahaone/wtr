@@ -113,7 +113,9 @@ The other decisions that affect accuracy:
   awaited (for no longer than 4 s) — otherwise the report comes out with bare addresses.
 * **Route length** = the smallest TTL from which the target answered in the current cycle.
   The maximum cannot be used: the target also answers at inflated TTLs, so tracerouting the
-  local gateway would show 30 hops instead of one. Hops beyond the target are hidden.
+  local gateway would show 30 hops instead of one. Hops beyond the target are hidden, rows
+  that were never probed are not listed, and every redraw erases the previous frame — no
+  stale rows stay under the table.
 * **ECMP**: when several addresses answer at one TTL, the most frequent one is shown, the
   others are marked with ` +N`.
 

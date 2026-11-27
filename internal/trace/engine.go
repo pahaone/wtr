@@ -45,6 +45,17 @@ type Options struct {
 	DNSServer string
 }
 
+// closeDrainDelay is how long Close waits before releasing the ICMP handles.
+//
+// When Ctrl+C cancels ctx, wg.Wait() guarantees only that the synchronous
+// IcmpSendEcho2 calls have returned — it does NOT mean iphlpapi has finished
+// processing the late ICMP Time-Exceeded replies still in flight for probes sent
+// moments ago. Those replies are tied to our reply buffers and to the handle's
+// internal context. Closing the handle while the stack is still delivering them
+// frees memory iphlpapi is touching, which crashes with an access violation
+// (0xc0000005) inside IcmpCloseHandle. A short drain pause lets the stack settle.
+const closeDrainDelay = 150 * time.Millisecond
+
 // Engine is the state of a single traceroute.
 type Engine struct {
 	opt   Options
@@ -54,6 +65,10 @@ type Engine struct {
 
 	workers []*worker
 	seq     atomic.Uint64
+
+	// closeOnce guards against double-closing the ICMP handles: New() closes on a
+	// setup error and cli.Run defers Close() again, and Run() defers Close() too.
+	closeOnce sync.Once
 
 	mu         sync.Mutex
 	hops       []*hopState
@@ -153,14 +168,20 @@ func (e *Engine) Target() netip.Addr { return e.dst }
 // Route is the interface the traceroute goes through.
 func (e *Engine) Route() probe.RouteInfo { return e.route }
 
-// Close closes all ICMP handles.
+// Close closes all ICMP handles. It first waits closeDrainDelay so iphlpapi can
+// finish delivering the late replies tied to probes that were still in flight when
+// ctx was cancelled — closing a handle mid-delivery crashes inside IcmpCloseHandle
+// (see closeDrainDelay). Safe to call more than once.
 func (e *Engine) Close() error {
-	for _, w := range e.workers {
-		if w.be != nil {
-			w.be.Close()
+	time.Sleep(closeDrainDelay)
+	e.closeOnce.Do(func() {
+		for _, w := range e.workers {
+			if w.be != nil {
+				w.be.Close()
+			}
 		}
-	}
-	e.workers = nil
+		e.workers = nil
+	})
 	return nil
 }
 
@@ -425,6 +446,16 @@ func (e *Engine) Snapshot() View {
 	limit := len(e.hops)
 	if r := e.reachedLocked(); r > 0 && r < limit {
 		limit = r
+	}
+	// Trailing hops where no probe was ever recorded have nothing to show: either the first
+	// cycle is still in flight (those TTLs have not been dispatched yet) or every probe at
+	// that TTL failed at the API level, which is not accounted for. Left alone, they turn the
+	// bottom of the table into a column of empty "???" rows.
+	for limit > 1 {
+		if sent, _ := e.hops[limit-1].st.Counters(); sent != 0 {
+			break
+		}
+		limit--
 	}
 	for _, h := range e.hops[:limit] {
 		snap := h.st.Snapshot()
