@@ -115,14 +115,14 @@ func New(ctx context.Context, opt Options, res Resolver) (*Engine, error) {
 
 	route, err := routeTo(dst)
 	if err != nil {
-		return nil, fmt.Errorf("не удалось определить интерфейс до %s: %w", dst, err)
+		return nil, fmt.Errorf("failed to determine the interface to %s: %w", dst, err)
 	}
 	if opt.IfIndex != 0 && opt.IfIndex != route.IfIndex {
 		route.IfIndex = opt.IfIndex
 		route.LUID, _ = probe.InterfaceLUID(opt.IfIndex)
 	}
 	if opt.Family == probe.Family6 && route.LUID == 0 {
-		return nil, fmt.Errorf("для IPv6 не удалось получить LUID интерфейса %d", route.IfIndex)
+		return nil, fmt.Errorf("failed to get the LUID of interface %d for IPv6", route.IfIndex)
 	}
 
 	nw := opt.Workers

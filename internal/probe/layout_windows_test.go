@@ -23,7 +23,7 @@ func TestStructSizes(t *testing.T) {
 	}
 	for _, c := range cases {
 		if int(c.got) != c.want {
-			t.Errorf("%s: sizeof=%d, хотим %d — раскладка iphlpapi не совпадает", c.name, c.got, c.want)
+			t.Errorf("%s: sizeof=%d, want %d — the iphlpapi layout does not match", c.name, c.got, c.want)
 		}
 	}
 }
@@ -42,10 +42,10 @@ func TestIPOctetOrder(t *testing.T) {
 	for _, c := range cases {
 		a := netip.MustParseAddr(c.ip)
 		if got := ipToUlong(a); got != c.want {
-			t.Errorf("ipToUlong(%s)=0x%08X, хотим 0x%08X", c.ip, got, c.want)
+			t.Errorf("ipToUlong(%s)=0x%08X, want 0x%08X", c.ip, got, c.want)
 		}
 		if back := ulongToIP(c.want); back != a {
-			t.Errorf("ulongToIP(0x%08X)=%s, хотим %s", c.want, back, a)
+			t.Errorf("ulongToIP(0x%08X)=%s, want %s", c.want, back, a)
 		}
 	}
 }
@@ -55,7 +55,7 @@ func TestIPOctetOrder(t *testing.T) {
 func TestIPOctetOrderIsNotBigEndian(t *testing.T) {
 	a := netip.MustParseAddr("192.168.1.254")
 	if got := binary.BigEndian.Uint32(a.AsSlice()); got == ipToUlong(a) {
-		t.Fatal("порядок байт совпал с BigEndian — вероятно, регрессия в ipToUlong")
+		t.Fatal("the byte order matches BigEndian — probably a regression in ipToUlong")
 	}
 }
 
@@ -67,7 +67,7 @@ func TestParseV6StatusRTT(t *testing.T) {
 	binary.LittleEndian.PutUint32(buf[v6RecRTTOff:], 17)
 	st, rtt := parseV6StatusRTT(buf)
 	if st != ipTTLExpiredTransit || rtt != 17 {
-		t.Fatalf("основной раскладка: status=%d rtt=%d", st, rtt)
+		t.Fatalf("primary layout: status=%d rtt=%d", st, rtt)
 	}
 
 	// The realistic "layout shifted by -2 bytes" case: known values are written at the
@@ -77,18 +77,18 @@ func TestParseV6StatusRTT(t *testing.T) {
 	binary.LittleEndian.PutUint32(buf[v6RecStatusAlt:], ipDestHostUnreachable)
 	binary.LittleEndian.PutUint32(buf[v6RecRTTAlt:], 42)
 	if knownStatus(binary.LittleEndian.Uint32(buf[v6RecStatusOff:])) {
-		t.Skip("смещение 28 случайно дало известный код — кейс не показателен")
+		t.Skip("offset 28 happened to give a known code — the case is not informative")
 	}
 	st, rtt = parseV6StatusRTT(buf)
 	if st != ipDestHostUnreachable || rtt != 42 {
-		t.Fatalf("запасная раскладка: status=%d(%s) rtt=%d", st, StatusName(st), rtt)
+		t.Fatalf("fallback layout: status=%d(%s) rtt=%d", st, StatusName(st), rtt)
 	}
 
 	// Zeros (success without RTT) are treated as success by the primary layout.
 	buf = make([]byte, v6RecordMinSize)
 	st, _ = parseV6StatusRTT(buf)
 	if st != ipSuccess {
-		t.Fatalf("пустой буфер: status=%d, хотим IP_SUCCESS", st)
+		t.Fatalf("empty buffer: status=%d, want IP_SUCCESS", st)
 	}
 }
 
@@ -101,6 +101,6 @@ func TestV6AddressOffset(t *testing.T) {
 	copy(got[:], buf[v6RecAddrOff:v6RecAddrOff+16])
 	a, _ := netip.AddrFromSlice(got[:])
 	if a != want {
-		t.Fatalf("addr@%d: получили %s, хотим %s", v6RecAddrOff, a, want)
+		t.Fatalf("addr@%d: got %s, want %s", v6RecAddrOff, a, want)
 	}
 }

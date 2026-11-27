@@ -48,7 +48,7 @@ func Run(args []string) int {
 
 	con, err := console.Open()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "wtr: консоль недоступна: %v\n", err)
+		fmt.Fprintf(os.Stderr, "wtr: console unavailable: %v\n", err)
 		return 1
 	}
 	defer con.Restore()
@@ -131,7 +131,7 @@ func normalizeDNSServer(s string) (string, error) {
 	if h, p, err := net.SplitHostPort(s); err == nil && h != "" {
 		port, cerr := strconv.Atoi(p)
 		if cerr != nil || port < 1 || port > 65535 {
-			return "", fmt.Errorf("неверный --dns-server %q: порт должен быть числом 1..65535", s)
+			return "", fmt.Errorf("invalid --dns-server %q: port must be a number 1..65535", s)
 		}
 		return s, nil
 	}
@@ -144,7 +144,7 @@ func normalizeDNSServer(s string) (string, error) {
 	if !strings.Contains(s, ":") && !strings.ContainsAny(s, " \t") {
 		return s + ":53", nil
 	}
-	return "", fmt.Errorf("неверный --dns-server %q: ожидается host или host:port", s)
+	return "", fmt.Errorf("invalid --dns-server %q: expected host or host:port", s)
 }
 
 // flushDNS waits for the reverse-name and ASN queues to drain before the final result
@@ -278,10 +278,10 @@ func parseArgs(args []string) (trace.Options, render.Options, mode, string, erro
 	rest := fs.Args()
 	if len(rest) == 0 {
 		usage(os.Stderr)
-		return trace.Options{}, render.Options{}, 0, "", errors.New("не указана цель (IP или домен)")
+		return trace.Options{}, render.Options{}, 0, "", errors.New("no target specified (an IP or a domain name)")
 	}
 	if len(rest) > 1 {
-		return trace.Options{}, render.Options{}, 0, "", fmt.Errorf("лишние аргументы: %s", strings.Join(rest[1:], " "))
+		return trace.Options{}, render.Options{}, 0, "", fmt.Errorf("extra arguments: %s", strings.Join(rest[1:], " "))
 	}
 	target := rest[0]
 
@@ -300,7 +300,7 @@ func parseArgs(args []string) (trace.Options, render.Options, mode, string, erro
 	}
 	switch {
 	case fam4 && fam6:
-		return opt, render.Options{}, 0, "", errors.New("-4 и -6 взаимоисключающие")
+		return opt, render.Options{}, 0, "", errors.New("-4 and -6 are mutually exclusive")
 	case fam4:
 		opt.Family = probe.Family4
 	case fam6:
@@ -309,7 +309,7 @@ func parseArgs(args []string) (trace.Options, render.Options, mode, string, erro
 	if src != "" {
 		a, err := netip.ParseAddr(src)
 		if err != nil {
-			return opt, render.Options{}, 0, "", fmt.Errorf("неверный --bind %q: %w", src, err)
+			return opt, render.Options{}, 0, "", fmt.Errorf("invalid --bind %q: %w", src, err)
 		}
 		opt.Src = a
 	}
@@ -336,16 +336,16 @@ func parseArgs(args []string) (trace.Options, render.Options, mode, string, erro
 
 	// Range validation.
 	if opt.MaxHops < 1 || opt.MaxHops > 64 {
-		return opt, ro, m, target, fmt.Errorf("--max-hops/-m должен быть 1..64 (получено %d)", opt.MaxHops)
+		return opt, ro, m, target, fmt.Errorf("--max-hops/-m must be 1..64 (got %d)", opt.MaxHops)
 	}
 	if opt.Cycles < 0 {
-		return opt, ro, m, target, errors.New("--cycles/-c не может быть отрицательным")
+		return opt, ro, m, target, errors.New("--cycles/-c cannot be negative")
 	}
 	if opt.QueriesPerHop < 1 || opt.QueriesPerHop > 16 {
-		return opt, ro, m, target, fmt.Errorf("--queries/-q должен быть 1..16 (получено %d)", opt.QueriesPerHop)
+		return opt, ro, m, target, fmt.Errorf("--queries/-q must be 1..16 (got %d)", opt.QueriesPerHop)
 	}
 	if opt.PayloadSize < 14 || opt.PayloadSize > 65000 {
-		return opt, ro, m, target, fmt.Errorf("-p/--psize должен быть 14..65000 байт (минимум — маркер зонда)")
+		return opt, ro, m, target, fmt.Errorf("-p/--psize must be 14..65000 bytes (the minimum is the probe marker)")
 	}
 	ds, err := normalizeDNSServer(dnsServer)
 	if err != nil {
@@ -360,7 +360,7 @@ func parseArgs(args []string) (trace.Options, render.Options, mode, string, erro
 	}
 	switch {
 	case handles > 64:
-		return opt, ro, m, target, errors.New("-z не может быть больше 64 ICMP-хендлов")
+		return opt, ro, m, target, errors.New("-z cannot exceed 64 ICMP handles")
 	case handles > 0:
 		opt.Workers = handles
 	default:
@@ -374,38 +374,38 @@ func parseArgs(args []string) (trace.Options, render.Options, mode, string, erro
 }
 
 func usage(w io.Writer) {
-	fmt.Fprintf(w, `wtr %s — трассировка маршрута для Windows без прав администратора
-(бэкенд: iphlpapi IcmpSendEcho2/Icmp6SendEcho2, как у tracert.exe)
+	fmt.Fprintf(w, `wtr %s — a traceroute for Windows that needs no administrator rights
+(backend: iphlpapi IcmpSendEcho2/Icmp6SendEcho2, the same as tracert.exe)
 
-Использование: wtr [опции] <цель>
+Usage: wtr [options] <target>
 
-Режимы:
-  (по умолчанию)     интерактивная таблица; выход — q или Ctrl+C
-  -r, --report       итоговая таблица после завершения (10 циклов по умолчанию)
-      --json         машинночитаемый вывод после завершения
+Modes:
+  (default)          interactive table; quit with q or Ctrl+C
+  -r, --report       final table after the run (10 cycles by default)
+      --json         machine-readable output after the run
 
-Опции:
-  -4, -6             только IPv4 / только IPv6
-  -c, --cycles N     число циклов (0 = бесконечно; в TUI по умолчанию бесконечно)
-  -i, --interval DUR интервал между циклами (по умолчанию 1s, минимум 100ms)
-  -t, --timeout DUR  таймаут ответа на зонд (по умолчанию 5s)
-  -m, --max-hops N   максимум хопов / TTL (по умолчанию 30)
-  -q, --queries N    зондов на хоп за цикл (1..16)
-  -p, --psize N      размер payload в байтах (14..65000)
-  -z N               число параллельных ICMP-хендлов (по умолчанию = max-hops*queries, до 24)
-  -B, --bind ADDR    исходный адрес зондов
-  -I, --interface X  интерфейс: индекс или имя ("Ethernet", "Wi-Fi")
-  -n, --no-dns       не резолвить обратные имена
-  -a, --aslookup     запрашивать ASN через Team Cymru (DNS)
-  -S, --dns-server H DNS-сервер для обратных имён (host:port)
-  -j, --jitter       колонки джиттера вместо StDev
-  -w, --wide         широкая колонка хостов в отчёте
-      --version      версия
-  -h, --help         эта справка
+Options:
+  -4, -6             IPv4 only / IPv6 only
+  -c, --cycles N     number of cycles (0 = infinite; infinite by default in the TUI)
+  -i, --interval DUR interval between cycles (default 1s, minimum 100ms)
+  -t, --timeout DUR  per-probe reply timeout (default 5s)
+  -m, --max-hops N   maximum hops / TTL (default 30)
+  -q, --queries N    probes per hop per cycle (1..16)
+  -p, --psize N      payload size in bytes (14..65000)
+  -z N               parallel ICMP handles (default = max-hops*queries, up to 24)
+  -B, --bind ADDR    source address of the probes
+  -I, --interface X  interface: index or name ("Ethernet", "Wi-Fi")
+  -n, --no-dns       do not resolve reverse names
+  -a, --aslookup     request the ASN via Team Cymru (DNS)
+  -S, --dns-server H DNS server for reverse names (host:port)
+  -j, --jitter       jitter columns instead of StDev
+  -w, --wide         wide host column in the report
+      --version      version
+  -h, --help         this help
 
-Клавиши в интерактивном режиме: q — выход, n — имена, a — ASN, j — джиттер.
+Keys in the interactive mode: q — exit, n — names, a — ASN, j — jitter.
 
-Примеры:
+Examples:
   wtr example.com
   wtr -r -c 20 -i 500ms 8.8.8.8
   wtr --json -6 -a google.com

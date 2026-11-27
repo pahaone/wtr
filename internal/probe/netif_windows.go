@@ -36,7 +36,7 @@ func RouteTo(dst netip.Addr) (RouteInfo, error) {
 		info.LUID = luid
 		info.FriendlyName = name
 	} else if dst.Is6() {
-		return RouteInfo{}, fmt.Errorf("probe: не найден LUID интерфейса %d: %w", idx, err)
+		return RouteInfo{}, fmt.Errorf("probe: the LUID of interface %d was not found: %w", idx, err)
 	}
 	return info, nil
 }
@@ -54,7 +54,7 @@ func InterfaceByFlag(s string) (uint32, error) {
 	}
 	iface, err := net.InterfaceByName(s)
 	if err != nil {
-		return 0, fmt.Errorf("probe: неизвестный интерфейс %q: %w", s, err)
+		return 0, fmt.Errorf("probe: unknown interface %q: %w", s, err)
 	}
 	return uint32(iface.Index), nil
 }
@@ -79,9 +79,9 @@ func interfaceLUIDAndName(ifIndex uint32) (uint64, string, error) {
 			}
 		}
 		runtime.KeepAlive(buf)
-		return 0, "", fmt.Errorf("интерфейс %d не найден", ifIndex)
+		return 0, "", fmt.Errorf("interface %d not found", ifIndex)
 	}
-	return 0, "", fmt.Errorf("GetAdaptersAddresses: буфер слишком мал")
+	return 0, "", fmt.Errorf("GetAdaptersAddresses: buffer too small")
 }
 
 // sockaddrFor builds a Sockaddr for GetBestInterfaceEx.
@@ -92,7 +92,7 @@ func sockaddrFor(dst netip.Addr) (windows.Sockaddr, error) {
 		return &sa, nil
 	}
 	if !dst.Is6() {
-		return nil, fmt.Errorf("probe: некорректный адрес %s", dst)
+		return nil, fmt.Errorf("probe: invalid address %s", dst)
 	}
 	sa := &windows.SockaddrInet6{}
 	copy(sa.Addr[:], dst.AsSlice())

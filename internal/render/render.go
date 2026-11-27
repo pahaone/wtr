@@ -163,12 +163,12 @@ func Frame(v trace.View, cols, rows int, o Options) string {
 		fmt.Fprintf(&b, "%s\n", truncate(row.String(), cols))
 	}
 	if truncated {
-		fmt.Fprintf(&b, "     … ещё %d хопов (увеличьте окно или уменьшите --max-hops)\n", len(v.Hops)-avail)
+		fmt.Fprintf(&b, "     … %d more hops (widen the window or lower --max-hops)\n", len(v.Hops)-avail)
 	}
 
-	hint := "Keys: q — выход · n — имена · a — ASN · j — джиттер"
+	hint := "Keys: q — exit · n — names · a — ASN · j — jitter"
 	if !o.ShowASN {
-		hint = "Keys: q — выход · n — имена · j — джиттер (ASN: запуск с --aslookup)"
+		hint = "Keys: q — exit · n — names · j — jitter (ASN: start with --aslookup)"
 	}
 	fmt.Fprintf(&b, "%s\n", truncate(hint, cols))
 	return b.String()

@@ -56,23 +56,23 @@ func TestFrameLayout(t *testing.T) {
 
 	for _, want := range []string{"%Loss", "Sent", "StDev", "example.com", "192.168.1.1", "H   "} {
 		if !strings.Contains(frame, want) {
-			t.Errorf("в кадре нет %q:\n%s", want, frame)
+			t.Errorf("frame is missing %q:\n%s", want, frame)
 		}
 	}
 	lines := strings.Split(strings.TrimRight(frame, "\n"), "\n")
 	// 2 header lines + column titles + 3 hops + hint.
 	if len(lines) != 7 {
-		t.Errorf("строк %d, хотим 7:\n%s", len(lines), frame)
+		t.Errorf("%d lines, want 7:\n%s", len(lines), frame)
 	}
 	for i, l := range lines {
 		if n := len([]rune(l)); n > 110 {
-			t.Errorf("строка %d шире окна: %d > 110 (%q)", i, n, l)
+			t.Errorf("line %d is wider than the window: %d > 110 (%q)", i, n, l)
 		}
 	}
 	// Without a name only the bare address must be shown.
 	bare := Frame(v, 110, 24, Options{})
 	if strings.Contains(bare, "router.lan") {
-		t.Error("ShowNames=false, а имя хоста попало в вывод")
+		t.Error("ShowNames=false but the host name leaked into the output")
 	}
 }
 
@@ -83,7 +83,7 @@ func TestFrameNarrowWindowNotBroken(t *testing.T) {
 	frame := Frame(v, 60, 24, Options{ShowNames: true})
 	for i, l := range strings.Split(strings.TrimRight(frame, "\n"), "\n") {
 		if n := len([]rune(l)); n > 60 {
-			t.Errorf("строка %d шириной %d > 60: %q", i, n, l)
+			t.Errorf("line %d is %d wide > 60: %q", i, n, l)
 		}
 	}
 }
@@ -93,11 +93,11 @@ func TestFrameScrolling(t *testing.T) {
 	v := sampleView()
 	v.Hops = append(v.Hops, mkHops(4, 40)...)
 	frame := Frame(v, 120, 10, Options{})
-	if !strings.Contains(frame, "ещё") {
-		t.Errorf("нет отметки о скрытых хопах:\n%s", frame)
+	if !strings.Contains(frame, "more hops") {
+		t.Errorf("no marker about the hidden hops:\n%s", frame)
 	}
 	if strings.Contains(frame, "39.") {
-		t.Error("все хопы выведены в окно из 10 строк")
+		t.Error("all hops were printed into a 10-line window")
 	}
 }
 
@@ -120,22 +120,22 @@ func TestReportFormat(t *testing.T) {
 	v := sampleView()
 	rep := Report(v, Options{ShowNames: true})
 	if !strings.HasPrefix(rep, "Start: ") {
-		t.Errorf("отчёт должен начинаться со строки Start:, получили %q", firstLine(rep))
+		t.Errorf("the report must start with the Start: line, got %q", firstLine(rep))
 	}
 	if !strings.Contains(rep, "HOSTS:") {
-		t.Error("нет строки HOSTS:")
+		t.Error("no HOSTS: line")
 	}
 	for _, want := range []string{"  1.|-- ", "  3.|-- ", "|-- example.com"} {
 		if !strings.Contains(rep, want) {
-			t.Errorf("в отчёте нет %q:\n%s", want, rep)
+			t.Errorf("the report is missing %q:\n%s", want, rep)
 		}
 	}
 	// mtr-compatible loss prefix: hop2 — 1 loss out of 2 = 50.0%.
 	if !strings.Contains(rep, "50.0%") {
-		t.Errorf("нет потерь 50.0%% для хопа 2:\n%s", rep)
+		t.Errorf("no 50.0%% loss for hop 2:\n%s", rep)
 	}
 	if !strings.Contains(Report(v, Options{ShowNames: true, Wide: true}), "HOSTS:") {
-		t.Error("--wide должен тоже печатать отчёт")
+		t.Error("--wide must print the report too")
 	}
 }
 
@@ -148,13 +148,13 @@ func TestJSONSchema(t *testing.T) {
 	}
 	var doc map[string]any
 	if err := json.Unmarshal(data, &doc); err != nil {
-		t.Fatalf("некорректный JSON: %v", err)
+		t.Fatalf("invalid JSON: %v", err)
 	}
 	if doc["schema"] != "wtr/1" || doc["backend"] != "iphlpapi" {
-		t.Errorf("метаданные: %v / %v", doc["schema"], doc["backend"])
+		t.Errorf("metadata: %v / %v", doc["schema"], doc["backend"])
 	}
 	if doc["reached_target"] != true {
-		t.Error("reached_target должен быть true")
+		t.Error("reached_target must be true")
 	}
 	tgt, ok := doc["target"].(map[string]any)
 	if !ok || tgt["addr"] != "93.184.216.34" || tgt["family"] != "ipv4" || tgt["name"] != "example.com" {
@@ -167,10 +167,10 @@ func TestJSONSchema(t *testing.T) {
 	h2 := hops[1].(map[string]any)
 	st := h2["stats"].(map[string]any)
 	if st["sent"].(float64) != 2 || st["lost"].(float64) != 1 || st["loss_pct"] != 50.0 {
-		t.Errorf("stats хопа 2: %v", st)
+		t.Errorf("stats of hop 2: %v", st)
 	}
 	if h2["status_name"] == "" {
-		t.Error("status_name обязан быть заполнен")
+		t.Error("status_name must be filled in")
 	}
 	if doc["stale_dropped"].(float64) != 2 {
 		t.Errorf("stale_dropped = %v", doc["stale_dropped"])
@@ -195,25 +195,25 @@ func TestFrameASNColumn(t *testing.T) {
 
 	on := Frame(v, 120, 24, Options{ShowNames: true, ShowASN: true})
 	if !strings.Contains(on, "AS") || !strings.Contains(on, "AS12345") {
-		t.Errorf("нет колонки AS или значения AS12345:\n%s", on)
+		t.Errorf("no AS column or AS12345 value:\n%s", on)
 	}
 	if !strings.Contains(on, "?") {
-		t.Errorf("хопы без ASN должны показывать «?»:\n%s", on)
+		t.Errorf("hops without ASN must show '?':\n%s", on)
 	}
 	if !strings.Contains(on, "a — ASN") {
-		t.Error("подсказка про клавишу a должна появляться при включённом ASN")
+		t.Error("the hint about key a must appear when ASN is enabled")
 	}
 
 	off := Frame(v, 120, 24, Options{ShowNames: true})
 	if strings.Contains(off, "AS12345") {
-		t.Error("ShowASN=false, а ASN попал в таблицу")
+		t.Error("ShowASN=false but ASN got into the table")
 	}
 	if !strings.Contains(off, "--aslookup") {
-		t.Error("без ASN в подсказке должно быть указано, как его включить")
+		t.Error("without ASN the hint must say how to switch it on")
 	}
 	for i, l := range strings.Split(strings.TrimRight(on, "\n"), "\n") {
 		if n := len([]rune(l)); n > 120 {
-			t.Errorf("строка %d с колонкой AS шире окна: %d > 120", i, n)
+			t.Errorf("line %d with the AS column is wider than the window: %d > 120", i, n)
 		}
 	}
 }
@@ -223,11 +223,11 @@ func TestFrameJitterColumns(t *testing.T) {
 	f := Frame(v, 130, 24, Options{ShowNames: true, Jitter: true})
 	for _, want := range []string{"Jit", "AvgJ", "MxJ"} {
 		if !strings.Contains(f, want) {
-			t.Errorf("нет колонки %s:\n%s", want, f)
+			t.Errorf("no %s column:\n%s", want, f)
 		}
 	}
 	if strings.Contains(f, "StDev") {
-		t.Error("с включённым джиттером колонки StDev быть не должно")
+		t.Error("with jitter enabled there must be no StDev column")
 	}
 }
 

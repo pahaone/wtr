@@ -76,8 +76,8 @@ Keys in the TUI: `q` — quit, `n` — show/hide names, `a` — the `AS` column
 Exit codes: `0` — success (including `--help`/`--version`), `1` — execution error
 (no route, handle could not be opened), `2` — an error in the arguments.
 
-Note: the program's runtime messages (help, errors, hints) are in Russian; only the
-comments and this documentation are translated.
+Note: the program's runtime messages (help, errors, hints) are always in English, like
+this documentation; [README_ru.md](README_ru.md) is only its translation.
 
 ## How it works without administrator rights
 

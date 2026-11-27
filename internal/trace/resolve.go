@@ -14,17 +14,17 @@ import (
 // AAAA record is the sole one.
 func ResolveTarget(ctx context.Context, target string, fam probe.Family) (netip.Addr, error) {
 	if target == "" {
-		return netip.Addr{}, fmt.Errorf("trace: пустая цель")
+		return netip.Addr{}, fmt.Errorf("trace: empty target")
 	}
 	if ip, err := netip.ParseAddr(target); err == nil {
 		switch fam {
 		case probe.Family4:
 			if !ip.Is4() && !ip.Is4In6() {
-				return netip.Addr{}, fmt.Errorf("%s не IPv4 (используйте -6 или уберите -4)", target)
+				return netip.Addr{}, fmt.Errorf("%s is not IPv4 (use -6 or drop -4)", target)
 			}
 		case probe.Family6:
 			if !ip.Is6() || ip.Is4In6() {
-				return netip.Addr{}, fmt.Errorf("%s не IPv6", target)
+				return netip.Addr{}, fmt.Errorf("%s is not IPv6", target)
 			}
 		}
 		return ip, nil
@@ -32,7 +32,7 @@ func ResolveTarget(ctx context.Context, target string, fam probe.Family) (netip.
 
 	addrs, err := net.DefaultResolver.LookupIP(ctx, "ip", target)
 	if err != nil {
-		return netip.Addr{}, fmt.Errorf("не удалось разрешить %q: %w", target, err)
+		return netip.Addr{}, fmt.Errorf("failed to resolve %q: %w", target, err)
 	}
 	var v4, v6 netip.Addr
 	for _, a := range addrs {
@@ -52,12 +52,12 @@ func ResolveTarget(ctx context.Context, target string, fam probe.Family) (netip.
 		if v4.IsValid() {
 			return v4, nil
 		}
-		return netip.Addr{}, fmt.Errorf("у %q нет A-записи (IPv4)", target)
+		return netip.Addr{}, fmt.Errorf("%q has no A record (IPv4)", target)
 	case probe.Family6:
 		if v6.IsValid() {
 			return v6, nil
 		}
-		return netip.Addr{}, fmt.Errorf("у %q нет AAAA-записи (IPv6)", target)
+		return netip.Addr{}, fmt.Errorf("%q has no AAAA record (IPv6)", target)
 	default:
 		if v4.IsValid() {
 			return v4, nil
@@ -66,7 +66,7 @@ func ResolveTarget(ctx context.Context, target string, fam probe.Family) (netip.
 			return v6, nil
 		}
 	}
-	return netip.Addr{}, fmt.Errorf("у %q нет подходящих адресных записей", target)
+	return netip.Addr{}, fmt.Errorf("%q has no usable address records", target)
 }
 
 func familyOf(a netip.Addr) probe.Family {

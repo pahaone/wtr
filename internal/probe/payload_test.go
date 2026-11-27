@@ -10,24 +10,24 @@ func TestMakePayloadMarkerRoundTrip(t *testing.T) {
 	buf := make([]byte, 56)
 	p := MakePayload(buf, 56, 7, 12, 999)
 	if len(p) != 56 {
-		t.Fatalf("длина payload %d, хотим 56", len(p))
+		t.Fatalf("payload length %d, want 56", len(p))
 	}
 	if !MatchMarker(p, 7, 12, 999) {
-		t.Fatal("маркер не узнался собственным зондом")
+		t.Fatal("the marker was not recognised by its own probe")
 	}
 	// Any of the marker fields must break the match — otherwise stale replies are never rejected.
 	for _, bad := range []struct{ c, s uint32 }{{8, 999}, {7, 1000}} {
 		if MatchMarker(p, bad.c, 12, bad.s) {
-			t.Errorf("цикл/seq (%d,%d) ложно совпал с (7,12,999)", bad.c, bad.s)
+			t.Errorf("cycle/seq (%d,%d) falsely matched (7,12,999)", bad.c, bad.s)
 		}
 	}
 	for _, badTTL := range []int{11, 13, 268} {
 		if MatchMarker(p, 7, badTTL, 999) {
-			t.Errorf("ttl=%d ложно совпал с ttl=12", badTTL)
+			t.Errorf("ttl=%d falsely matched ttl=12", badTTL)
 		}
 	}
 	if MatchMarker(p[:13], 7, 12, 999) {
-		t.Error("обрезанный маркер не должен совпадать")
+		t.Error("a truncated marker must not match")
 	}
 }
 
@@ -36,10 +36,10 @@ func TestMakePayloadMinSize(t *testing.T) {
 	buf := make([]byte, 64)
 	p := MakePayload(buf, 4, 1, 1, 1)
 	if len(p) < 14 {
-		t.Fatalf("payload %d байт — маркер не влезет", len(p))
+		t.Fatalf("payload is %d bytes — the marker will not fit", len(p))
 	}
 	if !MatchMarker(p, 1, 1, 1) {
-		t.Fatal("маркер повреждён при минимальном размере")
+		t.Fatal("the marker is damaged at the minimum size")
 	}
 }
 
@@ -50,10 +50,10 @@ func TestMakePayloadReusesBuffer(t *testing.T) {
 	MakePayload(buf, 56, 1, 1, 1)
 	p := MakePayload(buf, 56, 2, 2, 2)
 	if MatchMarker(p, 1, 1, 1) {
-		t.Error("старый маркер всё ещё узнаётся в переиспользованном буфере")
+		t.Error("the old marker is still recognised in the reused buffer")
 	}
 	if !MatchMarker(p, 2, 2, 2) {
-		t.Error("новый маркер не записан корректно")
+		t.Error("the new marker was not written correctly")
 	}
 }
 
@@ -73,7 +73,7 @@ func TestClassifyContract(t *testing.T) {
 	}
 	for _, c := range cases {
 		if got := Classify(c.status); got != c.want {
-			t.Errorf("Classify(%d=%s) = %s, хотим %s", c.status, StatusName(c.status), got, c.want)
+			t.Errorf("Classify(%d=%s) = %s, want %s", c.status, StatusName(c.status), got, c.want)
 		}
 	}
 }
@@ -89,7 +89,7 @@ func TestShortFlag(t *testing.T) {
 	}
 	for st, want := range cases {
 		if got := ShortFlag(st); got != want {
-			t.Errorf("ShortFlag(%d) = %q, хотим %q", st, got, want)
+			t.Errorf("ShortFlag(%d) = %q, want %q", st, got, want)
 		}
 	}
 }
@@ -97,7 +97,7 @@ func TestShortFlag(t *testing.T) {
 func TestReplyKind(t *testing.T) {
 	r := Reply{From: netip.MustParseAddr("10.0.0.1"), Status: 11013, RTT: 3 * time.Millisecond}
 	if r.Kind() != KindHop {
-		t.Fatalf("Kind = %s, хотим hop", r.Kind())
+		t.Fatalf("Kind = %s, want hop", r.Kind())
 	}
 	if StatusName(11013) != "IP_TTL_EXPIRED_TRANSIT" {
 		t.Errorf("StatusName(11013) = %q", StatusName(11013))

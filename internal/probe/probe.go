@@ -72,7 +72,7 @@ type Config struct {
 }
 
 // ErrUnsupported is returned on platforms where iphlpapi is unavailable.
-var ErrUnsupported = errors.New("probe: iphlpapi-бэкенд доступен только в Windows")
+var ErrUnsupported = errors.New("probe: the iphlpapi backend is available only on Windows")
 
 // APIError is a Win32/API error unrelated to packet loss (e.g. an invalid handle).
 type APIError struct {

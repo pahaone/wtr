@@ -161,7 +161,7 @@ type backendV4 struct {
 
 func newBackendV4(cfg Config) (Backend, error) {
 	if !cfg.Dst.Is4() {
-		return nil, fmt.Errorf("probe: цель %s не IPv4", cfg.Dst)
+		return nil, fmt.Errorf("probe: target %s is not IPv4", cfg.Dst)
 	}
 	h, _, cerr := procIcmpCreateFile.Call()
 	if h == 0 || h == ^uintptr(0) {
@@ -181,7 +181,7 @@ func (b *backendV4) Probe(ctx context.Context, ttl int, payload []byte, timeout 
 		return Reply{}, err
 	}
 	if len(payload) == 0 {
-		return Reply{}, fmt.Errorf("probe: пустой payload")
+		return Reply{}, fmt.Errorf("probe: empty payload")
 	}
 	opts := ipOptionInformation{Ttl: uint8(ttl)}
 	timeoutMs := uint32(timeout / time.Millisecond)
@@ -272,7 +272,7 @@ type backendV6 struct {
 
 func newBackendV6(cfg Config) (Backend, error) {
 	if !cfg.Dst.Is6() || cfg.Dst.Is4In6() {
-		return nil, fmt.Errorf("probe: цель %s не IPv6", cfg.Dst)
+		return nil, fmt.Errorf("probe: target %s is not IPv6", cfg.Dst)
 	}
 	h, _, cerr := procIcmp6CreateFile.Call()
 	if h == 0 || h == ^uintptr(0) {
@@ -301,7 +301,7 @@ func (b *backendV6) Probe(ctx context.Context, ttl int, payload []byte, timeout 
 		return Reply{}, err
 	}
 	if len(payload) == 0 {
-		return Reply{}, fmt.Errorf("probe: пустой payload")
+		return Reply{}, fmt.Errorf("probe: empty payload")
 	}
 	opts := ipOptionInformation32{Ttl: uint8(ttl)}
 	timeoutMs := uint32(timeout / time.Millisecond)
@@ -326,7 +326,7 @@ func (b *backendV6) Probe(ctx context.Context, ttl int, payload []byte, timeout 
 		return Reply{Status: errnoCode(cerr), RTT: rtt}, nil
 	}
 	if len(b.buf) < v6RecordMinSize {
-		return Reply{}, fmt.Errorf("probe: буфер ответа слишком мал")
+		return Reply{}, fmt.Errorf("probe: reply buffer too small")
 	}
 	status, apiMS := parseV6StatusRTT(b.buf)
 	var addr [16]byte
@@ -399,7 +399,7 @@ func checkABI() {
 		unsafe.Sizeof(ipOptionInformation{}) != 16 ||
 		unsafe.Sizeof(ipOptionInformation32{}) != 8 ||
 		unsafe.Sizeof(sockaddrIn6{}) != 28 {
-		panic("probe: неожиданные размеры структур iphlpapi — проверьте раскладку на этой платформе")
+		panic("probe: unexpected iphlpapi struct sizes — check the layout on this platform")
 	}
 }
 

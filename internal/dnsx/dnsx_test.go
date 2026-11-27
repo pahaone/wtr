@@ -23,7 +23,7 @@ func TestASNQueryNames(t *testing.T) {
 	for _, c := range cases {
 		got := asnQuery(netip.MustParseAddr(c.addr))
 		if got != c.want {
-			t.Errorf("asnQuery(%s):\n  получили %s\n  хотим      %s", c.addr, got, c.want)
+			t.Errorf("asnQuery(%s):\n  got  %s\n  want %s", c.addr, got, c.want)
 		}
 	}
 }
@@ -38,6 +38,6 @@ func TestASNQueryIPv6NibbleCount(t *testing.T) {
 		}
 	}
 	if n != 16 {
-		t.Errorf("меток в %q: %d, хотим 16", q, n)
+		t.Errorf("labels in %q: %d, want 16", q, n)
 	}
 }

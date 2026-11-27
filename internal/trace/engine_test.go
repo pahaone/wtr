@@ -24,7 +24,7 @@ var fakeStaleOnce atomic.Bool
 // silence. The first probe of the second hop is marked "late" to verify stale rejection.
 type fakeBackend struct{}
 
-var errNoMarker = errors.New("probe: нет маркера зонда в payload")
+var errNoMarker = errors.New("probe: no probe marker in the payload")
 
 func (fakeBackend) Probe(_ context.Context, ttl int, payload []byte, _ time.Duration) (probe.Reply, error) {
 	// The marker must be present: without it the rejection of "late" replies does not work.
@@ -78,44 +78,44 @@ func TestEngineCycleAndStats(t *testing.T) {
 	v := e.Snapshot()
 
 	if !v.Reached {
-		t.Fatal("цель должна быть достигнута на TTL=3")
+		t.Fatal("the target must be reached at TTL=3")
 	}
 	if v.Cycle != 2 {
-		t.Fatalf("Cycle=%d, хотим 2", v.Cycle)
+		t.Fatalf("Cycle=%d, want 2", v.Cycle)
 	}
 	// Exactly the hops up to the target: TTL 4 was probed in the first cycle but it must not
 	// be shown — beyond the target the target itself answers, there are no separate hops.
 	if len(v.Hops) != 3 {
-		t.Fatalf("хопов %d, хотим 3 (хопы за целью скрыты)", len(v.Hops))
+		t.Fatalf("%d hops, want 3 (hops beyond the target are hidden)", len(v.Hops))
 	}
 
 	h1 := v.Hops[0]
 	if h1.Snap.Sent != 4 || h1.Snap.Lost != 0 {
-		t.Errorf("hop1 sent/lost = %d/%d, хотим 4/0", h1.Snap.Sent, h1.Snap.Lost)
+		t.Errorf("hop1 sent/lost = %d/%d, want 4/0", h1.Snap.Sent, h1.Snap.Lost)
 	}
 	if len(h1.Addrs) != 1 || h1.Addrs[0] != netip.MustParseAddr("10.0.0.1") {
-		t.Errorf("hop1 addrs = %v, хотим [10.0.0.1]", h1.Addrs)
+		t.Errorf("hop1 addrs = %v, want [10.0.0.1]", h1.Addrs)
 	}
 	if h1.Pending {
-		t.Error("hop1 не должен быть pending")
+		t.Error("hop1 must not be pending")
 	}
 
 	h2 := v.Hops[1]
 	if h2.Snap.Sent != 3 || h2.Snap.Lost != 0 {
-		t.Errorf("hop2 sent/lost = %d/%d, хотим 3/0 (один stale отброшен)", h2.Snap.Sent, h2.Snap.Lost)
+		t.Errorf("hop2 sent/lost = %d/%d, want 3/0 (one stale reply dropped)", h2.Snap.Sent, h2.Snap.Lost)
 	}
 	if v.StaleDropped != 1 {
-		t.Errorf("StaleDropped=%d, хотим 1", v.StaleDropped)
+		t.Errorf("StaleDropped=%d, want 1", v.StaleDropped)
 	}
 
 	h3 := v.Hops[2]
 	if h3.Snap.Lost != 0 || h3.Addrs[0] != netip.MustParseAddr("192.0.2.1") {
-		t.Errorf("hop3 = %+v, хотим ответ от цели", h3)
+		t.Errorf("hop3 = %+v, want a reply from the target", h3)
 	}
 
 	for _, h := range v.Hops {
 		if h.TTL > 3 {
-			t.Errorf("в снимке появился хоп TTL=%d за пределами цели", h.TTL)
+			t.Errorf("the snapshot got a hop TTL=%d beyond the target", h.TTL)
 		}
 	}
 }
@@ -147,7 +147,7 @@ func TestEngineStopsGrowingAfterReach(t *testing.T) {
 	// Cycle 1: TTL 1..5 = 5 probes. After it the target is found at TTL=3,
 	// cycles 2 and 3 send only TTL 1..3 => 5 + 3 + 3 = 11 in total.
 	if got := calls.Load(); got != 11 {
-		t.Fatalf("всего зондов %d, хотим 11 (5+3+3)", got)
+		t.Fatalf("%d probes in total, want 11 (5+3+3)", got)
 	}
 }
 
@@ -204,16 +204,16 @@ func TestTargetAnsweringAtEveryTTLDoesNotInflateHops(t *testing.T) {
 
 	v := e.Snapshot()
 	if !v.Reached {
-		t.Fatal("цель должна быть достигнута")
+		t.Fatal("the target must be reached")
 	}
 	if len(v.Hops) != 2 {
-		t.Fatalf("хопов %d, хотим 2 (хопы 3..5 — это та же цель на завышенном TTL)", len(v.Hops))
+		t.Fatalf("%d hops, want 2 (hops 3..5 are the same target at an inflated TTL)", len(v.Hops))
 	}
 	if v.Hops[1].Addrs[0] != netip.MustParseAddr("192.0.2.1") {
-		t.Errorf("хоп 2 = %v, хотим цель", v.Hops[1].Addrs)
+		t.Errorf("hop 2 = %v, want the target", v.Hops[1].Addrs)
 	}
 	// Cycle 1: TTL 1..5, cycle 2: only TTL 1..2.
 	if got := calls.Load(); got != 7 {
-		t.Fatalf("всего зондов %d, хотим 7 (5+2)", got)
+		t.Fatalf("%d probes in total, want 7 (5+2)", got)
 	}
 }

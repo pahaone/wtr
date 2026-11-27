@@ -9,7 +9,7 @@ import (
 func approx(t *testing.T, name string, got, want float64) {
 	t.Helper()
 	if math.Abs(got-want) > 1e-6 {
-		t.Errorf("%s = %.6f, хотим %.6f", name, got, want)
+		t.Errorf("%s = %.6f, want %.6f", name, got, want)
 	}
 }
 
@@ -23,7 +23,7 @@ func TestLossAndRTTAggregates(t *testing.T) {
 	s := h.Snapshot()
 
 	if s.Sent != 4 || s.Lost != 1 {
-		t.Fatalf("sent/lost = %d/%d, хотим 4/1", s.Sent, s.Lost)
+		t.Fatalf("sent/lost = %d/%d, want 4/1", s.Sent, s.Lost)
 	}
 	approx(t, "LossP", s.LossP, 25.0)
 	approx(t, "LastMS", s.LastMS, 30.0)
@@ -59,10 +59,10 @@ func TestEmptyAndAllLost(t *testing.T) {
 	var empty Hop
 	s := empty.Snapshot()
 	if s.Sent != 0 || s.LossP != 0 || s.StDev != 0 {
-		t.Fatalf("пустой хоп дал %+v", s)
+		t.Fatalf("an empty hop gave %+v", s)
 	}
 	if empty.HasData() {
-		t.Fatal("HasData на пустом хопе должен быть false")
+		t.Fatal("HasData on an empty hop must be false")
 	}
 
 	var lost Hop
@@ -71,6 +71,6 @@ func TestEmptyAndAllLost(t *testing.T) {
 	}
 	s = lost.Snapshot()
 	if s.LossP != 100 || lost.HasData() {
-		t.Fatalf("все потеряны: %+v", s)
+		t.Fatalf("all lost: %+v", s)
 	}
 }
