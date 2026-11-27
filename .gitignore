@@ -1,0 +1,16 @@
+# Скомпилированные бинарные файлы
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Файлы тестов и кэш
+*.test
+*.out
+/vendor/
+
+# Папки IDE (если используете VS Code или GoLand)
+.vscode/
+.idea/
+
